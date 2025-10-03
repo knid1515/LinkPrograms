@@ -90,6 +90,19 @@
             transform: translateZ(0);
         }
 
+        .menu-item.disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .menu-item.disabled:hover {
+            transform: translateY(0) rotateX(0) rotateY(0);
+            box-shadow: 
+                5px 5px 15px rgba(0, 0, 0, 0.1),
+                -5px -5px 15px rgba(255, 255, 255, 0.7),
+                inset 1px 1px 3px rgba(255, 255, 255, 0.3);
+        }
+
         .menu-item::before {
             content: '';
             position: absolute;
@@ -101,7 +114,7 @@
             z-index: 1;
         }
 
-        .menu-item:hover {
+        .menu-item:hover:not(.disabled) {
             transform: translateY(-10px) rotateX(5deg) rotateY(5deg);
             box-shadow: 
                 15px 15px 25px rgba(0, 0, 0, 0.15),
@@ -116,11 +129,19 @@
             z-index: 2;
         }
 
+        .menu-item.disabled i {
+            color: #999;
+        }
+
         .menu-item h3 {
             color: var(--dark-color);
             font-size: 1rem;
             text-align: center;
             z-index: 2;
+        }
+
+        .menu-item.disabled h3 {
+            color: #666;
         }
 
         .menu-item p {
@@ -129,6 +150,10 @@
             text-align: center;
             margin-top: 5px;
             z-index: 2;
+        }
+
+        .menu-item.disabled p {
+            color: #999;
         }
 
         /* Loading Screen */
@@ -219,6 +244,35 @@
             flex-direction: column;
             gap: 10px;
             width: 250px;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+
+        .settings-panel.hidden {
+            transform: translateX(120%);
+            opacity: 0;
+        }
+
+        .settings-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+            z-index: 99;
+            transition: background 0.3s;
+        }
+
+        .settings-toggle:hover {
+            background: var(--dark-color);
         }
 
         .settings-panel h3 {
@@ -305,6 +359,11 @@
                 right: 10px;
                 top: 10px;
             }
+            
+            .settings-toggle {
+                right: 10px;
+                top: 10px;
+            }
         }
     </style>
 </head>
@@ -315,8 +374,13 @@
         <div class="loading-text">กำลังโหลดข้อมูล...</div>
     </div>
 
+    <!-- Settings Toggle Button -->
+    <button class="settings-toggle" id="settingsToggle">
+        <i class="fas fa-cog"></i>
+    </button>
+
     <!-- Settings Panel -->
-    <div class="settings-panel">
+    <div class="settings-panel hidden" id="settingsPanel">
         <h3>ตั้งค่า</h3>
         <input type="text" id="webAppUrl" placeholder="URL ของ Web App">
         <button id="saveSettings">บันทึก</button>
@@ -355,9 +419,12 @@
         const webAppUrlInput = document.getElementById('webAppUrl');
         const saveSettingsBtn = document.getElementById('saveSettings');
         const resetSettingsBtn = document.getElementById('resetSettings');
+        const settingsToggle = document.getElementById('settingsToggle');
+        const settingsPanel = document.getElementById('settingsPanel');
 
         // Default Web App URL (replace with your actual URL)
         let webAppUrl = localStorage.getItem('webAppUrl') || 'https://script.google.com/macros/s/YOUR_WEB_APP_ID/exec';
+        let config = {};
 
         // Initialize the web app URL input
         webAppUrlInput.value = webAppUrl;
@@ -371,6 +438,34 @@
             setTimeout(() => {
                 popup.classList.remove('show');
             }, duration);
+        }
+
+        // Function to fetch config from Google Sheets via Web App
+        async function fetchConfig() {
+            try {
+                if (!webAppUrl || webAppUrl === 'https://script.google.com/macros/s/YOUR_WEB_APP_ID/exec') {
+                    throw new Error('กรุณาตั้งค่า URL ของ Web App ก่อน');
+                }
+                
+                const configUrl = webAppUrl.replace('/exec', '/exec?action=getConfig');
+                const response = await fetch(configUrl);
+                
+                if (!response.ok) {
+                    throw new Error('ไม่สามารถดึงข้อมูลการตั้งค่าจาก Google Sheets ได้');
+                }
+                
+                const data = await response.json();
+                
+                // Check if data is an error
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                return data;
+            } catch (error) {
+                console.error('Error fetching config:', error);
+                return null;
+            }
         }
 
         // Function to fetch data from Google Sheets via Web App
@@ -404,7 +499,7 @@
         // Function to create menu item
         function createMenuItem(item) {
             const menuItem = document.createElement('div');
-            menuItem.className = 'menu-item';
+            menuItem.className = item.enabled === false ? 'menu-item disabled' : 'menu-item';
             
             menuItem.innerHTML = `
                 <i class="fas ${item.icon || 'fa-cube'}"></i>
@@ -412,18 +507,24 @@
                 <p>${item.description || ''}</p>
             `;
             
-            menuItem.addEventListener('click', () => {
-                showPopup('เปิดโปรแกรม', `กำลังเปิด ${item.name}...`);
-                
-                // Open the link in a new tab
-                if (item.link && item.link !== '#') {
-                    window.open(item.link, '_blank');
-                }
-                
-                setTimeout(() => {
-                    showPopup('สำเร็จ', `เปิด ${item.name} เรียบร้อยแล้ว`);
-                }, 1500);
-            });
+            if (item.enabled !== false) {
+                menuItem.addEventListener('click', () => {
+                    showPopup('เปิดโปรแกรม', `กำลังเปิด ${item.name}...`);
+                    
+                    // Open the link in a new tab
+                    if (item.link && item.link !== '#') {
+                        window.open(item.link, '_blank');
+                    }
+                    
+                    setTimeout(() => {
+                        showPopup('สำเร็จ', `เปิด ${item.name} เรียบร้อยแล้ว`);
+                    }, 1500);
+                });
+            } else {
+                menuItem.addEventListener('click', () => {
+                    showPopup('โปรแกรมถูกปิดใช้งาน', `โปรแกรม ${item.name} ถูกปิดใช้งานในการตั้งค่า`);
+                });
+            }
             
             return menuItem;
         }
@@ -456,112 +557,128 @@
                     description: 'โปรแกรมสำหรับสร้างเอกสาร',
                     category: 'Office',
                     icon: 'fa-file-word',
-                    link: 'https://www.microsoft.com/th-th/microsoft-365/word'
+                    link: 'https://www.microsoft.com/th-th/microsoft-365/word',
+                    enabled: true
                 },
                 {
                     name: 'Microsoft Excel',
                     description: 'โปรแกรมสำหรับจัดการข้อมูลตาราง',
                     category: 'Office',
                     icon: 'fa-file-excel',
-                    link: 'https://www.microsoft.com/th-th/microsoft-365/excel'
+                    link: 'https://www.microsoft.com/th-th/microsoft-365/excel',
+                    enabled: true
                 },
                 {
                     name: 'Adobe Photoshop',
                     description: 'โปรแกรมแก้ไขภาพ',
                     category: 'Design',
                     icon: 'fa-image',
-                    link: 'https://www.adobe.com/th_th/products/photoshop.html'
+                    link: 'https://www.adobe.com/th_th/products/photoshop.html',
+                    enabled: true
                 },
                 {
                     name: 'Visual Studio Code',
                     description: 'โปรแกรมสำหรับเขียนโค้ด',
                     category: 'Development',
                     icon: 'fa-code',
-                    link: 'https://code.visualstudio.com/'
+                    link: 'https://code.visualstudio.com/',
+                    enabled: true
                 },
                 {
                     name: 'Google Chrome',
                     description: 'เว็บเบราว์เซอร์',
                     category: 'Browser',
                     icon: 'fa-chrome',
-                    link: 'https://www.google.com/chrome/'
+                    link: 'https://www.google.com/chrome/',
+                    enabled: true
                 },
                 {
                     name: 'Spotify',
                     description: 'โปรแกรมสำหรับฟังเพลง',
                     category: 'Media',
                     icon: 'fa-music',
-                    link: 'https://www.spotify.com/th-th/'
+                    link: 'https://www.spotify.com/th-th/',
+                    enabled: true
                 },
                 {
                     name: 'Discord',
                     description: 'โปรแกรมสำหรับสื่อสาร',
                     category: 'Communication',
                     icon: 'fa-comments',
-                    link: 'https://discord.com/'
+                    link: 'https://discord.com/',
+                    enabled: true
                 },
                 {
                     name: 'Zoom',
                     description: 'โปรแกรมสำหรับประชุมออนไลน์',
                     category: 'Communication',
                     icon: 'fa-video',
-                    link: 'https://zoom.us/'
+                    link: 'https://zoom.us/',
+                    enabled: true
                 },
                 {
                     name: 'Adobe Illustrator',
                     description: 'โปรแกรมสำหรับออกแบบกราฟิก',
                     category: 'Design',
                     icon: 'fa-pen-nib',
-                    link: 'https://www.adobe.com/th_th/products/illustrator.html'
+                    link: 'https://www.adobe.com/th_th/products/illustrator.html',
+                    enabled: true
                 },
                 {
                     name: 'VLC Media Player',
                     description: 'โปรแกรมสำหรับเล่นสื่อ',
                     category: 'Media',
                     icon: 'fa-play-circle',
-                    link: 'https://www.videolan.org/vlc/'
+                    link: 'https://www.videolan.org/vlc/',
+                    enabled: true
                 },
                 {
                     name: '7-Zip',
                     description: 'โปรแกรมบีบอัดไฟล์',
                     category: 'Utility',
                     icon: 'fa-file-archive',
-                    link: 'https://www.7-zip.org/'
+                    link: 'https://www.7-zip.org/',
+                    enabled: true
                 },
                 {
                     name: 'Slack',
                     description: 'โปรแกรมสำหรับทำงานร่วมกัน',
                     category: 'Communication',
                     icon: 'fa-slack',
-                    link: 'https://slack.com/'
+                    link: 'https://slack.com/',
+                    enabled: true
                 },
                 {
                     name: 'Adobe Premiere Pro',
                     description: 'โปรแกรมตัดต่อวิดีโอ',
                     category: 'Media',
                     icon: 'fa-film',
-                    link: 'https://www.adobe.com/th_th/products/premiere.html'
+                    link: 'https://www.adobe.com/th_th/products/premiere.html',
+                    enabled: true
                 },
                 {
                     name: 'Notepad++',
                     description: 'โปรแกรมแก้ไขข้อความขั้นสูง',
                     category: 'Development',
                     icon: 'fa-file-alt',
-                    link: 'https://notepad-plus-plus.org/'
+                    link: 'https://notepad-plus-plus.org/',
+                    enabled: true
                 },
                 {
                     name: 'Microsoft PowerPoint',
                     description: 'โปรแกรมสำหรับสร้างงานนำเสนอ',
                     category: 'Office',
                     icon: 'fa-file-powerpoint',
-                    link: 'https://www.microsoft.com/th-th/microsoft-365/powerpoint'
+                    link: 'https://www.microsoft.com/th-th/microsoft-365/powerpoint',
+                    enabled: true
                 },
                 {
                     name: 'Khan Academy',
                     description: 'แพลตฟอร์มการเรียนรู้ออนไลน์',
                     category: 'Education',
                     icon: 'fa-graduation-cap',
-                    link: 'https://www.khanacademy.org/'
+                    link: 'https://www.khanacademy.org/',
+                    enabled: true
                 }
             ];
             
@@ -596,14 +713,32 @@
             loadSampleData();
         }
 
+        // Function to toggle settings panel
+        function toggleSettingsPanel() {
+            settingsPanel.classList.toggle('hidden');
+        }
+
         // Event listeners for settings buttons
         saveSettingsBtn.addEventListener('click', saveSettings);
         resetSettingsBtn.addEventListener('click', resetSettings);
+        settingsToggle.addEventListener('click', toggleSettingsPanel);
 
         // Initialize the application
         async function init() {
             // Simulate loading time
             await new Promise(resolve => setTimeout(resolve, 1500));
+            
+            // Try to fetch config from Google Sheets via Web App
+            const configData = await fetchConfig();
+            
+            if (configData) {
+                config = configData;
+                
+                // Check if settings should be hidden
+                if (config.hideSettings === 'true' || config.hideSettings === true) {
+                    settingsToggle.style.display = 'none';
+                }
+            }
             
             // Try to fetch data from Google Sheets via Web App
             const sheetData = await fetchSheetData();
