@@ -447,7 +447,8 @@
                     throw new Error('กรุณาตั้งค่า URL ของ Web App ก่อน');
                 }
                 
-                const configUrl = webAppUrl.replace('/exec', '/exec?action=getConfig');
+                // แก้ไขวิธีการเรียกใช้งาน API
+                const configUrl = `${webAppUrl}?action=getConfig`;
                 const response = await fetch(configUrl);
                 
                 if (!response.ok) {
@@ -598,7 +599,7 @@
                     category: 'Media',
                     icon: 'fa-music',
                     link: 'https://www.spotify.com/th-th/',
-                    enabled: true
+                    enabled: false
                 },
                 {
                     name: 'Discord',
@@ -638,7 +639,7 @@
                     category: 'Utility',
                     icon: 'fa-file-archive',
                     link: 'https://www.7-zip.org/',
-                    enabled: true
+                    enabled: false
                 },
                 {
                     name: 'Slack',
