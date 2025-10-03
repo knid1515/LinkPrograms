@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เมนูโปรแกรม 3D</title>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #4a7c59;
+            --secondary-color: #8fc0a9;
+            --accent-color: #c8d5b9;
+            --light-color: #f6fff8;
+            --dark-color: #1e3a29;
+            --shadow-color: rgba(0, 0, 0, 0.2);
+            --border-radius: 20px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Kanit', sans-serif;
+            background: linear-gradient(135deg, #f6fff8 0%, #d4e9d7 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        h1 {
+            color: var(--dark-color);
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .subtitle {
+            color: var(--primary-color);
+            font-size: 1.2rem;
+            font-weight: 300;
+        }
+
+        .menu-container {
+            perspective: 1000px;
+            width: 100%;
+            max-width: 900px;
+            animation: fadeIn 1s ease-out;
+        }
+
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 25px;
+            transform-style: preserve-3d;
+            transition: transform 0.5s;
+        }
+
+        .menu-item {
+            background: linear-gradient(145deg, #ffffff, #e6f0e9);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 180px;
+            box-shadow: 
+                5px 5px 15px rgba(0, 0, 0, 0.1),
+                -5px -5px 15px rgba(255, 255, 255, 0.7),
+                inset 1px 1px 3px rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transform-style: preserve-3d;
+            transform: translateZ(0);
+        }
+
+        .menu-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 100%);
+            z-index: 1;
+        }
+
+        .menu-item:hover {
+            transform: translateY(-10px) rotateX(5deg) rotateY(5deg);
+            box-shadow: 
+                15px 15px 25px rgba(0, 0, 0, 0.15),
+                -15px -15px 25px rgba(255, 255, 255, 0.8),
+                inset 1px 1px 3px rgba(255, 255, 255, 0.3);
+        }
+
+        .menu-item i {
+            font-size: 2.5rem;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            z-index: 2;
+        }
+
+        .menu-item h3 {
+            color: var(--dark-color);
+            font-size: 1rem;
+            text-align: center;
+            z-index: 2;
+        }
+
+        .menu-item p {
+            color: var(--primary-color);
+            font-size: 0.8rem;
+            text-align: center;
+            margin-top: 5px;
+            z-index: 2;
+        }
+
+        /* Loading Screen */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #f6fff8 0%, #d4e9d7 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            transition: opacity 0.5s ease-out;
+        }
+
+        .loading-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loader {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 10px solid rgba(74, 124, 89, 0.2);
+            border-top-color: var(--primary-color);
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        .loading-text {
+            color: var(--primary-color);
+            font-size: 1.2rem;
+            font-weight: 500;
+        }
+
+        /* Popup Notification */
+        .popup {
+            position: fixed;
+            bottom: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 20px 30px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            transition: bottom 0.5s ease-out;
+            z-index: 1001;
+            max-width: 90%;
+        }
+
+        .popup.show {
+            bottom: 30px;
+        }
+
+        .popup i {
+            font-size: 1.5rem;
+            color: var(--primary-color);
+        }
+
+        .popup-content h4 {
+            color: var(--dark-color);
+            margin-bottom: 5px;
+        }
+
+        .popup-content p {
+            color: var(--primary-color);
+            font-size: 0.9rem;
+        }
+
+        /* Animations */
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 900px) {
+            .menu-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 680px) {
+            .menu-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .menu-grid {
+                grid-template-columns: repeat(1, 1fr);
+            }
+            
+            .menu-item {
+                height: 150px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loader"></div>
+        <div class="loading-text">กำลังโหลดข้อมูล...</div>
+    </div>
+
+    <!-- Header -->
+    <header>
+        <h1>เมนูโปรแกรม</h1>
+        <p class="subtitle">เลือกโปรแกรมที่ต้องการใช้งาน</p>
+    </header>
+
+    <!-- Menu Container -->
+    <main class="menu-container">
+        <div class="menu-grid" id="menuGrid">
+            <!-- Menu items will be dynamically loaded here -->
+        </div>
+    </main>
+
+    <!-- Popup Notification -->
+    <div class="popup" id="popup">
+        <i class="fas fa-info-circle"></i>
+        <div class="popup-content">
+            <h4 id="popupTitle">ข้อความแจ้งเตือน</h4>
+            <p id="popupMessage">นี่คือข้อความแจ้งเตือน</p>
+        </div>
+    </div>
+
+    <script>
+        // Google Sheets API configuration
+        const SHEET_ID = '1gJeUMWBmcEisbP6iXKyL0qULUSL5MY1KJo6oXk-2uY4'; // แทนที่ด้วย ID ของ Google Sheets ของคุณ
+        const API_KEY = 'AIzaSyATd3nF2PayxLK0R9PcNirpjIyJXiMdFNk'; // แทนที่ด้วย API Key ของคุณ
+        const SHEET_NAME = 'Programs'; // ชื่อของชีตที่ต้องการดึงข้อมูล
+
+        // DOM Elements
+        const loadingScreen = document.getElementById('loadingScreen');
+        const menuGrid = document.getElementById('menuGrid');
+        const popup = document.getElementById('popup');
+        const popupTitle = document.getElementById('popupTitle');
+        const popupMessage = document.getElementById('popupMessage');
+
+        // Function to show popup notification
+        function showPopup(title, message, duration = 3000) {
+            popupTitle.textContent = title;
+            popupMessage.textContent = message;
+            popup.classList.add('show');
+            
+            setTimeout(() => {
+                popup.classList.remove('show');
+            }, duration);
+        }
+
+        // Function to fetch data from Google Sheets
+        async function fetchSheetData() {
+            try {
+                const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}?key=${API_KEY}`;
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error('ไม่สามารถดึงข้อมูลจาก Google Sheets ได้');
+                }
+                
+                const data = await response.json();
+                return data.values;
+            } catch (error) {
+                console.error('Error fetching sheet data:', error);
+                showPopup('ข้อผิดพลาด', 'ไม่สามารถดึงข้อมูลจาก Google Sheets ได้ กำลังใช้ข้อมูลตัวอย่าง');
+                return null;
+            }
+        }
+
+        // Function to create menu item
+        function createMenuItem(item) {
+            const menuItem = document.createElement('div');
+            menuItem.className = 'menu-item';
+            
+            // Determine icon based on category or name
+            let iconClass = 'fas fa-cube'; // Default icon
+            if (item.category) {
+                switch (item.category.toLowerCase()) {
+                    case 'office':
+                        iconClass = 'fas fa-file-alt';
+                        break;
+                    case 'design':
+                        iconClass = 'fas fa-palette';
+                        break;
+                    case 'development':
+                        iconClass = 'fas fa-code';
+                        break;
+                    case 'media':
+                        iconClass = 'fas fa-photo-video';
+                        break;
+                    case 'utility':
+                        iconClass = 'fas fa-tools';
+                        break;
+                    case 'browser':
+                        iconClass = 'fas fa-globe';
+                        break;
+                    case 'communication':
+                        iconClass = 'fas fa-comments';
+                        break;
+                    case 'education':
+                        iconClass = 'fas fa-graduation-cap';
+                        break;
+                }
+            }
+            
+            menuItem.innerHTML = `
+                <i class="${iconClass}"></i>
+                <h3>${item.name}</h3>
+                <p>${item.description || ''}</p>
+            `;
+            
+            menuItem.addEventListener('click', () => {
+                showPopup('เปิดโปรแกรม', `กำลังเปิด ${item.name}...`);
+                // In a real application, you would open the program here
+                // For demo purposes, we'll just show a notification
+                setTimeout(() => {
+                    showPopup('สำเร็จ', `เปิด ${item.name} เรียบร้อยแล้ว`);
+                }, 1500);
+            });
+            
+            return menuItem;
+        }
+
+        // Function to render menu
+        function renderMenu(data) {
+            menuGrid.innerHTML = '';
+            
+            // Skip header row if exists
+            const startIndex = data[0][0] === 'Name' ? 1 : 0;
+            
+            for (let i = startIndex; i < Math.min(startIndex + 16, data.length); i++) {
+                const row = data[i];
+                const menuItem = {
+                    name: row[0] || `โปรแกรม ${i}`,
+                    description: row[1] || '',
+                    category: row[2] || '',
+                    link: row[3] || '#'
+                };
+                
+                menuGrid.appendChild(createMenuItem(menuItem));
+            }
+            
+            // Hide loading screen
+            loadingScreen.classList.add('hidden');
+        }
+
+        // Function to load sample data if sheet data is not available
+        function loadSampleData() {
+            const sampleData = [
+                ['Name', 'Description', 'Category', 'Link'],
+                ['Microsoft Word', 'โปรแกรมสำหรับสร้างเอกสาร', 'Office', '#'],
+                ['Microsoft Excel', 'โปรแกรมสำหรับจัดการข้อมูลตาราง', 'Office', '#'],
+                ['Adobe Photoshop', 'โปรแกรมแก้ไขภาพ', 'Design', '#'],
+                ['Visual Studio Code', 'โปรแกรมสำหรับเขียนโค้ด', 'Development', '#'],
+                ['Google Chrome', 'เว็บเบราว์เซอร์', 'Browser', '#'],
+                ['Spotify', 'โปรแกรมสำหรับฟังเพลง', 'Media', '#'],
+                ['Discord', 'โปรแกรมสำหรับสื่อสาร', 'Communication', '#'],
+                ['Zoom', 'โปรแกรมสำหรับประชุมออนไลน์', 'Communication', '#'],
+                ['Adobe Illustrator', 'โปรแกรมสำหรับออกแบบกราฟิก', 'Design', '#'],
+                ['VLC Media Player', 'โปรแกรมสำหรับเล่นสื่อ', 'Media', '#'],
+                ['7-Zip', 'โปรแกรมบีบอัดไฟล์', 'Utility', '#'],
+                ['Slack', 'โปรแกรมสำหรับทำงานร่วมกัน', 'Communication', '#'],
+                ['Adobe Premiere Pro', 'โปรแกรมตัดต่อวิดีโอ', 'Media', '#'],
+                ['Notepad++', 'โปรแกรมแก้ไขข้อความขั้นสูง', 'Development', '#'],
+                ['Microsoft PowerPoint', 'โปรแกรมสำหรับสร้างงานนำเสนอ', 'Office', '#'],
+                ['Khan Academy', 'แพลตฟอร์มการเรียนรู้ออนไลน์', 'Education', '#']
+            ];
+            
+            renderMenu(sampleData);
+        }
+
+        // Initialize the application
+        async function init() {
+            // Simulate loading time
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            
+            // Try to fetch data from Google Sheets
+            const sheetData = await fetchSheetData();
+            
+            if (sheetData) {
+                renderMenu(sheetData);
+            } else {
+                // Use sample data if sheet data is not available
+                loadSampleData();
+            }
+        }
+
+        // Start the application
+        init();
+
+        // Add 3D effect based on mouse movement
+        document.addEventListener('mousemove', (e) => {
+            const x = e.clientX / window.innerWidth;
+            const y = e.clientY / window.innerHeight;
+            
+            const menuGrid = document.getElementById('menuGrid');
+            menuGrid.style.transform = `rotateY(${(x - 0.5) * 10}deg) rotateX(${(y - 0.5) * -10}deg)`;
+        });
+    </script>
+</body>
+</html>
