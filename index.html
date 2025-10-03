@@ -205,6 +205,50 @@
             font-size: 0.9rem;
         }
 
+        /* Settings Panel */
+        .settings-panel {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 250px;
+        }
+
+        .settings-panel h3 {
+            color: var(--dark-color);
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+        }
+
+        .settings-panel input {
+            padding: 8px;
+            border: 1px solid var(--accent-color);
+            border-radius: 5px;
+            font-family: 'Kanit', sans-serif;
+        }
+
+        .settings-panel button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 8px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Kanit', sans-serif;
+            transition: background 0.3s;
+        }
+
+        .settings-panel button:hover {
+            background: var(--dark-color);
+        }
+
         /* Animations */
         @keyframes spin {
             to { transform: rotate(360deg); }
@@ -241,6 +285,10 @@
             h1 {
                 font-size: 2rem;
             }
+            
+            .settings-panel {
+                width: 200px;
+            }
         }
 
         @media (max-width: 480px) {
@@ -251,6 +299,12 @@
             .menu-item {
                 height: 150px;
             }
+            
+            .settings-panel {
+                width: 180px;
+                right: 10px;
+                top: 10px;
+            }
         }
     </style>
 </head>
@@ -259,6 +313,14 @@
     <div class="loading-screen" id="loadingScreen">
         <div class="loader"></div>
         <div class="loading-text">กำลังโหลดข้อมูล...</div>
+    </div>
+
+    <!-- Settings Panel -->
+    <div class="settings-panel">
+        <h3>ตั้งค่า</h3>
+        <input type="text" id="webAppUrl" placeholder="URL ของ Web App">
+        <button id="saveSettings">บันทึก</button>
+        <button id="resetSettings">รีเซ็ต</button>
     </div>
 
     <!-- Header -->
@@ -284,17 +346,21 @@
     </div>
 
     <script>
-        // Google Sheets API configuration
-        const SHEET_ID = '1gJeUMWBmcEisbP6iXKyL0qULUSL5MY1KJo6oXk-2uY4'; // แทนที่ด้วย ID ของ Google Sheets ของคุณ
-        const API_KEY = 'AIzaSyATd3nF2PayxLK0R9PcNirpjIyJXiMdFNk'; // แทนที่ด้วย API Key ของคุณ
-        const SHEET_NAME = 'Programs'; // ชื่อของชีตที่ต้องการดึงข้อมูล
-
         // DOM Elements
         const loadingScreen = document.getElementById('loadingScreen');
         const menuGrid = document.getElementById('menuGrid');
         const popup = document.getElementById('popup');
         const popupTitle = document.getElementById('popupTitle');
         const popupMessage = document.getElementById('popupMessage');
+        const webAppUrlInput = document.getElementById('webAppUrl');
+        const saveSettingsBtn = document.getElementById('saveSettings');
+        const resetSettingsBtn = document.getElementById('resetSettings');
+
+        // Default Web App URL (replace with your actual URL)
+        let webAppUrl = localStorage.getItem('webAppUrl') || 'https://script.google.com/macros/s/YOUR_WEB_APP_ID/exec';
+
+        // Initialize the web app URL input
+        webAppUrlInput.value = webAppUrl;
 
         // Function to show popup notification
         function showPopup(title, message, duration = 3000) {
@@ -307,21 +373,30 @@
             }, duration);
         }
 
-        // Function to fetch data from Google Sheets
+        // Function to fetch data from Google Sheets via Web App
         async function fetchSheetData() {
             try {
-                const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}?key=${API_KEY}`;
-                const response = await fetch(url);
+                if (!webAppUrl || webAppUrl === 'https://script.google.com/macros/s/YOUR_WEB_APP_ID/exec') {
+                    throw new Error('กรุณาตั้งค่า URL ของ Web App ก่อน');
+                }
+                
+                const response = await fetch(webAppUrl);
                 
                 if (!response.ok) {
                     throw new Error('ไม่สามารถดึงข้อมูลจาก Google Sheets ได้');
                 }
                 
                 const data = await response.json();
-                return data.values;
+                
+                // Check if data is an error
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                return data;
             } catch (error) {
                 console.error('Error fetching sheet data:', error);
-                showPopup('ข้อผิดพลาด', 'ไม่สามารถดึงข้อมูลจาก Google Sheets ได้ กำลังใช้ข้อมูลตัวอย่าง');
+                showPopup('ข้อผิดพลาด', error.message);
                 return null;
             }
         }
@@ -331,47 +406,20 @@
             const menuItem = document.createElement('div');
             menuItem.className = 'menu-item';
             
-            // Determine icon based on category or name
-            let iconClass = 'fas fa-cube'; // Default icon
-            if (item.category) {
-                switch (item.category.toLowerCase()) {
-                    case 'office':
-                        iconClass = 'fas fa-file-alt';
-                        break;
-                    case 'design':
-                        iconClass = 'fas fa-palette';
-                        break;
-                    case 'development':
-                        iconClass = 'fas fa-code';
-                        break;
-                    case 'media':
-                        iconClass = 'fas fa-photo-video';
-                        break;
-                    case 'utility':
-                        iconClass = 'fas fa-tools';
-                        break;
-                    case 'browser':
-                        iconClass = 'fas fa-globe';
-                        break;
-                    case 'communication':
-                        iconClass = 'fas fa-comments';
-                        break;
-                    case 'education':
-                        iconClass = 'fas fa-graduation-cap';
-                        break;
-                }
-            }
-            
             menuItem.innerHTML = `
-                <i class="${iconClass}"></i>
+                <i class="fas ${item.icon || 'fa-cube'}"></i>
                 <h3>${item.name}</h3>
                 <p>${item.description || ''}</p>
             `;
             
             menuItem.addEventListener('click', () => {
                 showPopup('เปิดโปรแกรม', `กำลังเปิด ${item.name}...`);
-                // In a real application, you would open the program here
-                // For demo purposes, we'll just show a notification
+                
+                // Open the link in a new tab
+                if (item.link && item.link !== '#') {
+                    window.open(item.link, '_blank');
+                }
+                
                 setTimeout(() => {
                     showPopup('สำเร็จ', `เปิด ${item.name} เรียบร้อยแล้ว`);
                 }, 1500);
@@ -384,19 +432,16 @@
         function renderMenu(data) {
             menuGrid.innerHTML = '';
             
-            // Skip header row if exists
-            const startIndex = data[0][0] === 'Name' ? 1 : 0;
+            // Check if data is an array
+            if (!Array.isArray(data)) {
+                console.error('Data is not an array:', data);
+                loadSampleData();
+                return;
+            }
             
-            for (let i = startIndex; i < Math.min(startIndex + 16, data.length); i++) {
-                const row = data[i];
-                const menuItem = {
-                    name: row[0] || `โปรแกรม ${i}`,
-                    description: row[1] || '',
-                    category: row[2] || '',
-                    link: row[3] || '#'
-                };
-                
-                menuGrid.appendChild(createMenuItem(menuItem));
+            // Render menu items
+            for (let i = 0; i < Math.min(16, data.length); i++) {
+                menuGrid.appendChild(createMenuItem(data[i]));
             }
             
             // Hide loading screen
@@ -406,34 +451,161 @@
         // Function to load sample data if sheet data is not available
         function loadSampleData() {
             const sampleData = [
-                ['Name', 'Description', 'Category', 'Link'],
-                ['Microsoft Word', 'โปรแกรมสำหรับสร้างเอกสาร', 'Office', '#'],
-                ['Microsoft Excel', 'โปรแกรมสำหรับจัดการข้อมูลตาราง', 'Office', '#'],
-                ['Adobe Photoshop', 'โปรแกรมแก้ไขภาพ', 'Design', '#'],
-                ['Visual Studio Code', 'โปรแกรมสำหรับเขียนโค้ด', 'Development', '#'],
-                ['Google Chrome', 'เว็บเบราว์เซอร์', 'Browser', '#'],
-                ['Spotify', 'โปรแกรมสำหรับฟังเพลง', 'Media', '#'],
-                ['Discord', 'โปรแกรมสำหรับสื่อสาร', 'Communication', '#'],
-                ['Zoom', 'โปรแกรมสำหรับประชุมออนไลน์', 'Communication', '#'],
-                ['Adobe Illustrator', 'โปรแกรมสำหรับออกแบบกราฟิก', 'Design', '#'],
-                ['VLC Media Player', 'โปรแกรมสำหรับเล่นสื่อ', 'Media', '#'],
-                ['7-Zip', 'โปรแกรมบีบอัดไฟล์', 'Utility', '#'],
-                ['Slack', 'โปรแกรมสำหรับทำงานร่วมกัน', 'Communication', '#'],
-                ['Adobe Premiere Pro', 'โปรแกรมตัดต่อวิดีโอ', 'Media', '#'],
-                ['Notepad++', 'โปรแกรมแก้ไขข้อความขั้นสูง', 'Development', '#'],
-                ['Microsoft PowerPoint', 'โปรแกรมสำหรับสร้างงานนำเสนอ', 'Office', '#'],
-                ['Khan Academy', 'แพลตฟอร์มการเรียนรู้ออนไลน์', 'Education', '#']
+                {
+                    name: 'Microsoft Word',
+                    description: 'โปรแกรมสำหรับสร้างเอกสาร',
+                    category: 'Office',
+                    icon: 'fa-file-word',
+                    link: 'https://www.microsoft.com/th-th/microsoft-365/word'
+                },
+                {
+                    name: 'Microsoft Excel',
+                    description: 'โปรแกรมสำหรับจัดการข้อมูลตาราง',
+                    category: 'Office',
+                    icon: 'fa-file-excel',
+                    link: 'https://www.microsoft.com/th-th/microsoft-365/excel'
+                },
+                {
+                    name: 'Adobe Photoshop',
+                    description: 'โปรแกรมแก้ไขภาพ',
+                    category: 'Design',
+                    icon: 'fa-image',
+                    link: 'https://www.adobe.com/th_th/products/photoshop.html'
+                },
+                {
+                    name: 'Visual Studio Code',
+                    description: 'โปรแกรมสำหรับเขียนโค้ด',
+                    category: 'Development',
+                    icon: 'fa-code',
+                    link: 'https://code.visualstudio.com/'
+                },
+                {
+                    name: 'Google Chrome',
+                    description: 'เว็บเบราว์เซอร์',
+                    category: 'Browser',
+                    icon: 'fa-chrome',
+                    link: 'https://www.google.com/chrome/'
+                },
+                {
+                    name: 'Spotify',
+                    description: 'โปรแกรมสำหรับฟังเพลง',
+                    category: 'Media',
+                    icon: 'fa-music',
+                    link: 'https://www.spotify.com/th-th/'
+                },
+                {
+                    name: 'Discord',
+                    description: 'โปรแกรมสำหรับสื่อสาร',
+                    category: 'Communication',
+                    icon: 'fa-comments',
+                    link: 'https://discord.com/'
+                },
+                {
+                    name: 'Zoom',
+                    description: 'โปรแกรมสำหรับประชุมออนไลน์',
+                    category: 'Communication',
+                    icon: 'fa-video',
+                    link: 'https://zoom.us/'
+                },
+                {
+                    name: 'Adobe Illustrator',
+                    description: 'โปรแกรมสำหรับออกแบบกราฟิก',
+                    category: 'Design',
+                    icon: 'fa-pen-nib',
+                    link: 'https://www.adobe.com/th_th/products/illustrator.html'
+                },
+                {
+                    name: 'VLC Media Player',
+                    description: 'โปรแกรมสำหรับเล่นสื่อ',
+                    category: 'Media',
+                    icon: 'fa-play-circle',
+                    link: 'https://www.videolan.org/vlc/'
+                },
+                {
+                    name: '7-Zip',
+                    description: 'โปรแกรมบีบอัดไฟล์',
+                    category: 'Utility',
+                    icon: 'fa-file-archive',
+                    link: 'https://www.7-zip.org/'
+                },
+                {
+                    name: 'Slack',
+                    description: 'โปรแกรมสำหรับทำงานร่วมกัน',
+                    category: 'Communication',
+                    icon: 'fa-slack',
+                    link: 'https://slack.com/'
+                },
+                {
+                    name: 'Adobe Premiere Pro',
+                    description: 'โปรแกรมตัดต่อวิดีโอ',
+                    category: 'Media',
+                    icon: 'fa-film',
+                    link: 'https://www.adobe.com/th_th/products/premiere.html'
+                },
+                {
+                    name: 'Notepad++',
+                    description: 'โปรแกรมแก้ไขข้อความขั้นสูง',
+                    category: 'Development',
+                    icon: 'fa-file-alt',
+                    link: 'https://notepad-plus-plus.org/'
+                },
+                {
+                    name: 'Microsoft PowerPoint',
+                    description: 'โปรแกรมสำหรับสร้างงานนำเสนอ',
+                    category: 'Office',
+                    icon: 'fa-file-powerpoint',
+                    link: 'https://www.microsoft.com/th-th/microsoft-365/powerpoint'
+                },
+                {
+                    name: 'Khan Academy',
+                    description: 'แพลตฟอร์มการเรียนรู้ออนไลน์',
+                    category: 'Education',
+                    icon: 'fa-graduation-cap',
+                    link: 'https://www.khanacademy.org/'
+                }
             ];
             
             renderMenu(sampleData);
         }
+
+        // Function to save settings
+        function saveSettings() {
+            const url = webAppUrlInput.value.trim();
+            if (url) {
+                webAppUrl = url;
+                localStorage.setItem('webAppUrl', url);
+                showPopup('สำเร็จ', 'บันทึกการตั้งค่าเรียบร้อยแล้ว');
+                
+                // Reload data with new URL
+                loadingScreen.classList.remove('hidden');
+                init();
+            } else {
+                showPopup('ข้อผิดพลาด', 'กรุณากรอก URL ของ Web App');
+            }
+        }
+
+        // Function to reset settings
+        function resetSettings() {
+            webAppUrl = 'https://script.google.com/macros/s/AKfycby25jSaMnU6rh3syid4y1CBnX76Qco8QUUYjARBfRfOwdo__RVetl1OfBbocO8cS1AM1g/exec';
+            webAppUrlInput.value = webAppUrl;
+            localStorage.removeItem('webAppUrl');
+            showPopup('สำเร็จ', 'รีเซ็ตการตั้งค่าเรียบร้อยแล้ว');
+            
+            // Load sample data
+            loadingScreen.classList.remove('hidden');
+            loadSampleData();
+        }
+
+        // Event listeners for settings buttons
+        saveSettingsBtn.addEventListener('click', saveSettings);
+        resetSettingsBtn.addEventListener('click', resetSettings);
 
         // Initialize the application
         async function init() {
             // Simulate loading time
             await new Promise(resolve => setTimeout(resolve, 1500));
             
-            // Try to fetch data from Google Sheets
+            // Try to fetch data from Google Sheets via Web App
             const sheetData = await fetchSheetData();
             
             if (sheetData) {
